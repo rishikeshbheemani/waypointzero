@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
+from app.config.settings import settings
 
 app = FastAPI(
-    title="Voyager AI",
-    description="Autonomous Multi-Agent Travel Planning System",
-    version="0.1.0"
+    title=settings.APP_NAME,
+    version=settings.VERSION,
+    description="Autonomous Multi-Agent Travel Planning System"
 )
 
 app.include_router(health_router)
@@ -14,5 +15,5 @@ app.include_router(health_router)
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to Voyager AI!"
+        "message": f"Welcome to {settings.APP_NAME}"
     }
