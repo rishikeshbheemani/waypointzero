@@ -216,3 +216,33 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ===========================
+# Next.js
+# ===========================
+node_modules/
+.next/
+out/
+
+# ===========================
+# Environment files
+# ===========================
+.env.local
+.env.development.local
+.env.production.local
+
+# ===========================
+# Database
+# ===========================
+*.db
+
+# ===========================
+# macOS / Windows
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Docker
+# ===========================
+docker-compose.override.yml
