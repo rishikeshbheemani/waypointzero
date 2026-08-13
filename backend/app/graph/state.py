@@ -1,3 +1,4 @@
+from app.models.supervisor import SupervisorDecision
 from typing import Annotated
 
 from langgraph.graph.message import add_messages
@@ -27,7 +28,7 @@ class TravelState(BaseModel):
 
     user_profile: UserProfile = Field(default_factory=UserProfile)
     trip_request: TripRequest
-
+    supervisor_decision: SupervisorDecision | None = None
     # ==========================
     # Knowledge Produced
     # ==========================

@@ -16,4 +16,5 @@ def test_graph_execution():
     result = graph.invoke(initial_state)
 
     assert result["execution"].status == "running"
-    assert result["execution"].current_agent == "test_node"
+    assert result["execution"].current_agent == "supervisor"
+    assert result["supervisor_decision"] is not None

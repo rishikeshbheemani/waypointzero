@@ -1,29 +1,97 @@
 from langgraph.graph import StateGraph, START, END
 
 from app.graph.state import TravelState
+from app.agents.supervisor import run_supervisor
+from app.agents.placeholders import (
+    research_node,
+    weather_node,
+    transport_node,
+    accommodation_node,
+    activities_node,
+    budget_node,
+)
 
 
-def test_state_node(state: TravelState) -> TravelState:
+def supervisor_node(state: TravelState):
+    decision = run_supervisor(
+        state.trip_request.model_dump_json()
+    )
+
+    execution = state.execution.model_copy(
+        update={
+            "current_agent": "supervisor",
+            "status": "running",
+            "completed_agents": ["supervisor"],
+        }
+    )
+
+    return {
+        "supervisor_decision": decision,
+        "execution": execution,
+    }
+
+
+def route_from_supervisor(state: TravelState):
     """
-    Simple test node to verify that TravelState
-    can pass through a LangGraph workflow.
+    Determine which agents should run based on the
+    Supervisor's decision.
     """
 
-    state.execution.status = "running"
-    state.execution.current_agent = "test_node"
+    decision = state.supervisor_decision
 
-    return state
+    routes = []
+
+    if decision.invoke_research:
+        routes.append("research")
+
+    if decision.invoke_weather:
+        routes.append("weather")
+
+    if decision.invoke_transport:
+        routes.append("transport")
+
+    if decision.invoke_accommodation:
+        routes.append("accommodation")
+
+    if decision.invoke_activities:
+        routes.append("activities")
+
+    if decision.invoke_budget:
+        routes.append("budget")
+
+    return routes
 
 
-# Create the graph
 builder = StateGraph(TravelState)
 
-# Add our test node
-builder.add_node("test_state", test_state_node)
+builder.add_node("supervisor", supervisor_node)
+builder.add_node("research", research_node)
+builder.add_node("weather", weather_node)
+builder.add_node("transport", transport_node)
+builder.add_node("accommodation", accommodation_node)
+builder.add_node("activities", activities_node)
+builder.add_node("budget", budget_node)
 
-# Define the flow
-builder.add_edge(START, "test_state")
-builder.add_edge("test_state", END)
+builder.add_edge(START, "supervisor")
 
-# Compile the graph
+builder.add_conditional_edges(
+    "supervisor",
+    route_from_supervisor,
+    {
+        "research": "research",
+        "weather": "weather",
+        "transport": "transport",
+        "accommodation": "accommodation",
+        "activities": "activities",
+        "budget": "budget",
+    },
+)
+
+builder.add_edge("research", END)
+builder.add_edge("weather", END)
+builder.add_edge("transport", END)
+builder.add_edge("accommodation", END)
+builder.add_edge("activities", END)
+builder.add_edge("budget", END)
+
 graph = builder.compile()
