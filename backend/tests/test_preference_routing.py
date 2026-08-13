@@ -4,7 +4,7 @@ from app.graph.graph import graph
 from app.schemas.travel import TripRequest
 
 
-def test_graph_execution():
+def test_preference_runs_before_other_agents():
 
     trip_request = TripRequest(
         destination="Japan",
@@ -15,12 +15,8 @@ def test_graph_execution():
         constraints=["avoid crowds"],
     )
 
-    initial_state = {
+    result = graph.invoke({
         "trip_request": trip_request
-    }
+    })
 
-    result = graph.invoke(initial_state)
-
-    assert result["execution"].status == "running"
-    assert result["execution"].current_agent == "preference"
-    assert result["supervisor_decision"] is not None
+    assert "preference" in result["execution"].completed_agents

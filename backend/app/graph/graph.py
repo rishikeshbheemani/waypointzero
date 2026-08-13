@@ -1,7 +1,11 @@
 from langgraph.graph import StateGraph, START, END
 
 from app.graph.state import TravelState
+
 from app.agents.supervisor import run_supervisor
+from app.agents.preferences import preference_node
+from app.agents.clarification import clarification_node
+
 from app.agents.placeholders import (
     research_node,
     weather_node,
@@ -10,9 +14,16 @@ from app.agents.placeholders import (
     activities_node,
     budget_node,
 )
-from app.agents.clarification import clarification_node
+
+
+# Supervisor Node
 
 def supervisor_node(state: TravelState):
+    """
+    Run the Supervisor Agent and store its decision
+    in the shared TravelState.
+    """
+
     decision = run_supervisor(
         state.trip_request.model_dump_json()
     )
@@ -31,12 +42,36 @@ def supervisor_node(state: TravelState):
     }
 
 
+# Supervisor Routing
+
 def route_from_supervisor(state: TravelState):
+    """
+    Decide what happens immediately after the Supervisor.
+
+    Incomplete request:
+        Supervisor → Clarification
+
+    Complete request:
+        Supervisor → Preference
+    """
 
     decision = state.supervisor_decision
 
     if decision.needs_clarification:
         return "clarification"
+
+    return "preference"
+
+
+# Routing After Preference Agent
+
+def route_after_preference(state: TravelState):
+    """
+    Decide which specialized agents should run after
+    the Preference Agent.
+    """
+
+    decision = state.supervisor_decision
 
     routes = []
 
@@ -61,23 +96,61 @@ def route_from_supervisor(state: TravelState):
     return routes
 
 
+# Build Graph
+
 builder = StateGraph(TravelState)
 
+
+# ----------------------------------------------------------
+# Nodes
+# ----------------------------------------------------------
+
 builder.add_node("supervisor", supervisor_node)
+
+builder.add_node("preference", preference_node)
+
+builder.add_node("clarification", clarification_node)
+
 builder.add_node("research", research_node)
 builder.add_node("weather", weather_node)
 builder.add_node("transport", transport_node)
 builder.add_node("accommodation", accommodation_node)
 builder.add_node("activities", activities_node)
 builder.add_node("budget", budget_node)
-builder.add_node("clarification", clarification_node)
-builder.add_edge(START, "supervisor")
+
+
+# ----------------------------------------------------------
+# Start → Supervisor
+# ----------------------------------------------------------
+
+builder.add_edge(
+    START,
+    "supervisor",
+)
+
+
+# ----------------------------------------------------------
+# Supervisor → Clarification / Preference
+# ----------------------------------------------------------
 
 builder.add_conditional_edges(
     "supervisor",
     route_from_supervisor,
     {
         "clarification": "clarification",
+        "preference": "preference",
+    },
+)
+
+
+# ----------------------------------------------------------
+# Preference → Specialized Agents
+# ----------------------------------------------------------
+
+builder.add_conditional_edges(
+    "preference",
+    route_after_preference,
+    {
         "research": "research",
         "weather": "weather",
         "transport": "transport",
@@ -87,13 +160,21 @@ builder.add_conditional_edges(
     },
 )
 
+
+# ----------------------------------------------------------
+# Agent → END
+# ----------------------------------------------------------
+
 builder.add_edge("research", END)
 builder.add_edge("weather", END)
 builder.add_edge("transport", END)
 builder.add_edge("accommodation", END)
 builder.add_edge("activities", END)
 builder.add_edge("budget", END)
+
 builder.add_edge("clarification", END)
 
+
+# Compile
 
 graph = builder.compile()
