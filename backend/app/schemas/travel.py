@@ -61,6 +61,12 @@ class Festival(BaseModel):
     month: str
     description: str
 
+class ResearchSource(BaseModel):
+    title: str
+    url: str
+    source_type: str
+    relevance: float | None = None
+    verification_status: str = "unverified"
 
 class ResearchResult(BaseModel):
     attractions: list[Attraction] = Field(default_factory=list)
@@ -72,6 +78,9 @@ class ResearchResult(BaseModel):
     local_customs: list[str] = Field(default_factory=list)
     travel_tips: list[str] = Field(default_factory=list)
     safety_notes: list[str] = Field(default_factory=list)
+
+    sources: list[ResearchSource] = Field(default_factory=list)
+    verification_notes: list[str] = Field(default_factory=list)
 
 class WeatherInfo(BaseModel):
     temperature_celsius: float | None = None
