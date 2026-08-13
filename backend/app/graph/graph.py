@@ -10,7 +10,7 @@ from app.agents.placeholders import (
     activities_node,
     budget_node,
 )
-
+from app.agents.clarification import clarification_node
 
 def supervisor_node(state: TravelState):
     decision = run_supervisor(
@@ -32,12 +32,11 @@ def supervisor_node(state: TravelState):
 
 
 def route_from_supervisor(state: TravelState):
-    """
-    Determine which agents should run based on the
-    Supervisor's decision.
-    """
 
     decision = state.supervisor_decision
+
+    if decision.needs_clarification:
+        return "clarification"
 
     routes = []
 
@@ -71,13 +70,14 @@ builder.add_node("transport", transport_node)
 builder.add_node("accommodation", accommodation_node)
 builder.add_node("activities", activities_node)
 builder.add_node("budget", budget_node)
-
+builder.add_node("clarification", clarification_node)
 builder.add_edge(START, "supervisor")
 
 builder.add_conditional_edges(
     "supervisor",
     route_from_supervisor,
     {
+        "clarification": "clarification",
         "research": "research",
         "weather": "weather",
         "transport": "transport",
@@ -93,5 +93,7 @@ builder.add_edge("transport", END)
 builder.add_edge("accommodation", END)
 builder.add_edge("activities", END)
 builder.add_edge("budget", END)
+builder.add_edge("clarification", END)
+
 
 graph = builder.compile()
