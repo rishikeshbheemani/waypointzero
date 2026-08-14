@@ -7,7 +7,6 @@ from app.agents.preferences import preference_node
 from app.agents.clarification import clarification_node
 
 from app.agents.placeholders import (
-    research_node,
     weather_node,
     transport_node,
     accommodation_node,
@@ -15,6 +14,7 @@ from app.agents.placeholders import (
     budget_node,
 )
 
+from app.agents.research import run_research_agent
 
 # Supervisor Node
 
@@ -95,6 +95,27 @@ def route_after_preference(state: TravelState):
 
     return routes
 
+# Research Node
+def research_node(state: TravelState):
+    research_result = run_research_agent(
+        state.trip_request
+    )
+
+    execution = state.execution.model_copy(
+        update={
+            "current_agent": "research",
+            "status": "running",
+            "completed_agents": [
+                *state.execution.completed_agents,
+                "research",
+            ],
+        }
+    )
+
+    return {
+        "research": research_result,
+        "execution": execution,
+    }
 
 # Build Graph
 

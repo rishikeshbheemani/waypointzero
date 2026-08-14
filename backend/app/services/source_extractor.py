@@ -15,17 +15,26 @@ class TavilySourceExtractor:
 
     def extract(self, urls: list[str]) -> list[dict]:
         """
-        Extract content from a list of URLs.
+        Extract content from URLs in batches of 20.
         """
 
         if not urls:
             return []
 
-        response = self.client.extract(
-            urls=urls
-        )
+        all_results = []
 
-        return response.get("results", [])
+        for i in range(0, len(urls), 20):
+            batch = urls[i:i + 20]
+
+            response = self.client.extract(
+                urls=batch
+            )
+
+            all_results.extend(
+                response.get("results", [])
+            )
+
+        return all_results
 
 
 source_extractor = TavilySourceExtractor()
