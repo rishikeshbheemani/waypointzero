@@ -22,5 +22,12 @@ def test_graph_execution():
     result = graph.invoke(initial_state)
 
     assert result["execution"].status == "running"
-    assert result["execution"].current_agent == "research"
+    assert result["execution"].current_agent == "preference"
     assert result["supervisor_decision"] is not None
+
+    # Specialized agent results should be present.
+    assert "research" in result
+    assert result["research"] is not None
+
+    assert "weather" in result
+    assert result["weather"] is not None

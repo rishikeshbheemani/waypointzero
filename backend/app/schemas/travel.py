@@ -82,15 +82,48 @@ class ResearchResult(BaseModel):
     sources: list[ResearchSource] = Field(default_factory=list)
     verification_notes: list[str] = Field(default_factory=list)
 
+class WeatherForecast(BaseModel):
+    date: date
+
+    temperature_max_celsius: float | None = None
+    temperature_min_celsius: float | None = None
+
+    precipitation_probability: int | None = None
+    precipitation_mm: float | None = None
+
+    humidity_percent: float | None = None
+    wind_speed_kmh: float | None = None
+
+    weather_code: int | None = None
+
+    weather_description: str | None = None
+    
 class WeatherInfo(BaseModel):
-    temperature_celsius: float | None = None
-    condition: str | None = None
-    rain_probability: int | None = None
+    location: str | None = None
 
-    sunrise: str | None = None
-    sunset: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    timezone: str | None = None
 
-    warnings: list[str] = Field(default_factory=list)
+    forecast: list[WeatherForecast] = Field(
+        default_factory=list
+    )
+
+    seasonal_context: list[str] = Field(
+        default_factory=list
+    )
+
+    travel_impact: list[str] = Field(
+        default_factory=list
+    )
+
+    recommendations: list[str] = Field(
+        default_factory=list
+    )
+
+    warnings: list[str] = Field(
+        default_factory=list
+    )
 
 class TransportInfo(BaseModel):
     recommended_flights: list[str] = Field(default_factory=list)

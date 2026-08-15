@@ -5,16 +5,16 @@ from app.graph.state import TravelState
 from app.agents.supervisor import run_supervisor
 from app.agents.preferences import preference_node
 from app.agents.clarification import clarification_node
+from app.agents.research import run_research_agent
+from app.agents.weather import run_weather_agent
 
 from app.agents.placeholders import (
-    weather_node,
     transport_node,
     accommodation_node,
     activities_node,
     budget_node,
 )
 
-from app.agents.research import run_research_agent
 
 # Supervisor Node
 
@@ -46,13 +46,9 @@ def supervisor_node(state: TravelState):
 
 def route_from_supervisor(state: TravelState):
     """
-    Decide what happens immediately after the Supervisor.
+    Route incomplete requests to clarification.
 
-    Incomplete request:
-        Supervisor → Clarification
-
-    Complete request:
-        Supervisor → Preference
+    Complete requests continue to the Preference Agent.
     """
 
     decision = state.supervisor_decision
@@ -63,7 +59,7 @@ def route_from_supervisor(state: TravelState):
     return "preference"
 
 
-# Routing After Preference Agent
+# Preference Routing
 
 def route_after_preference(state: TravelState):
     """
@@ -95,54 +91,103 @@ def route_after_preference(state: TravelState):
 
     return routes
 
+
 # Research Node
+
 def research_node(state: TravelState):
+    """
+    Execute the Research Agent.
+
+    This node only writes to the research field.
+
+    It does NOT update execution because multiple
+    specialized agents can run in parallel.
+    """
+
     research_result = run_research_agent(
         state.trip_request
     )
 
-    execution = state.execution.model_copy(
-        update={
-            "current_agent": "research",
-            "status": "running",
-            "completed_agents": [
-                *state.execution.completed_agents,
-                "research",
-            ],
-        }
+    return {
+        "research": research_result,
+    }
+
+
+# Weather Node
+
+def weather_node(state: TravelState):
+    """
+    Execute the Weather Agent.
+
+    This node only writes to the weather field.
+
+    It does NOT update execution because multiple
+    specialized agents can run in parallel.
+    """
+
+    weather_result = run_weather_agent(
+        state.trip_request
     )
 
     return {
-        "research": research_result,
-        "execution": execution,
+        "weather": weather_result,
     }
+
 
 # Build Graph
 
 builder = StateGraph(TravelState)
 
 
-# ----------------------------------------------------------
 # Nodes
-# ----------------------------------------------------------
 
-builder.add_node("supervisor", supervisor_node)
+builder.add_node(
+    "supervisor",
+    supervisor_node,
+)
 
-builder.add_node("preference", preference_node)
+builder.add_node(
+    "preference",
+    preference_node,
+)
 
-builder.add_node("clarification", clarification_node)
+builder.add_node(
+    "clarification",
+    clarification_node,
+)
 
-builder.add_node("research", research_node)
-builder.add_node("weather", weather_node)
-builder.add_node("transport", transport_node)
-builder.add_node("accommodation", accommodation_node)
-builder.add_node("activities", activities_node)
-builder.add_node("budget", budget_node)
+builder.add_node(
+    "research",
+    research_node,
+)
+
+builder.add_node(
+    "weather",
+    weather_node,
+)
+
+builder.add_node(
+    "transport",
+    transport_node,
+)
+
+builder.add_node(
+    "accommodation",
+    accommodation_node,
+)
+
+builder.add_node(
+    "activities",
+    activities_node,
+)
+
+builder.add_node(
+    "budget",
+    budget_node,
+)
 
 
-# ----------------------------------------------------------
-# Start → Supervisor
-# ----------------------------------------------------------
+# START → Supervisor
 
 builder.add_edge(
     START,
@@ -150,9 +195,7 @@ builder.add_edge(
 )
 
 
-# ----------------------------------------------------------
 # Supervisor → Clarification / Preference
-# ----------------------------------------------------------
 
 builder.add_conditional_edges(
     "supervisor",
@@ -164,9 +207,7 @@ builder.add_conditional_edges(
 )
 
 
-# ----------------------------------------------------------
 # Preference → Specialized Agents
-# ----------------------------------------------------------
 
 builder.add_conditional_edges(
     "preference",
@@ -182,18 +223,42 @@ builder.add_conditional_edges(
 )
 
 
-# ----------------------------------------------------------
-# Agent → END
-# ----------------------------------------------------------
+# Specialized Agents → END
 
-builder.add_edge("research", END)
-builder.add_edge("weather", END)
-builder.add_edge("transport", END)
-builder.add_edge("accommodation", END)
-builder.add_edge("activities", END)
-builder.add_edge("budget", END)
+builder.add_edge(
+    "research",
+    END,
+)
 
-builder.add_edge("clarification", END)
+builder.add_edge(
+    "weather",
+    END,
+)
+
+builder.add_edge(
+    "transport",
+    END,
+)
+
+builder.add_edge(
+    "accommodation",
+    END,
+)
+
+builder.add_edge(
+    "activities",
+    END,
+)
+
+builder.add_edge(
+    "budget",
+    END,
+)
+
+builder.add_edge(
+    "clarification",
+    END,
+)
 
 
 # Compile
