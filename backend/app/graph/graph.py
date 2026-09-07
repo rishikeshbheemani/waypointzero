@@ -7,9 +7,9 @@ from app.agents.preferences import preference_node
 from app.agents.clarification import clarification_node
 from app.agents.research import run_research_agent
 from app.agents.weather import run_weather_agent
+from app.agents.transport import run_transport_agent
 
 from app.agents.placeholders import (
-    transport_node,
     accommodation_node,
     activities_node,
     budget_node,
@@ -19,6 +19,7 @@ from app.agents.placeholders import (
 # Supervisor Node
 
 def supervisor_node(state: TravelState):
+
     """
     Run the Supervisor Agent and store its decision
     in the shared TravelState.
@@ -53,7 +54,7 @@ def route_from_supervisor(state: TravelState):
 
     decision = state.supervisor_decision
 
-    if decision.needs_clarification:
+    if decision and decision.needs_clarification:
         return "clarification"
 
     return "preference"
@@ -68,6 +69,8 @@ def route_after_preference(state: TravelState):
     """
 
     decision = state.supervisor_decision
+    if not decision:
+        return ["research", "weather", "transport"]
 
     routes = []
 
@@ -131,6 +134,25 @@ def weather_node(state: TravelState):
 
     return {
         "weather": weather_result,
+    }
+
+
+# Transport Node
+
+def transport_node(state: TravelState):
+    """
+    Execute the Transport Agent.
+
+    This node writes to the transport field.
+    """
+
+    transport_result = run_transport_agent(
+        state.trip_request,
+        state.user_profile,
+    )
+
+    return {
+        "transport": transport_result,
     }
 
 

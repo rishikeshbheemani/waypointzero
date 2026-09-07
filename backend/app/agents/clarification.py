@@ -4,6 +4,12 @@ from app.graph.state import TravelState
 def clarification_node(state: TravelState):
     decision = state.supervisor_decision
 
+    question = (
+        decision.clarification_question
+        if decision and decision.clarification_question
+        else "I need a little more information before planning your trip."
+    )
+
     return {
         "execution": state.execution.model_copy(
             update={
@@ -14,10 +20,7 @@ def clarification_node(state: TravelState):
         "messages": [
             {
                 "role": "assistant",
-                "content": (
-                    decision.clarification_question
-                    or "I need a little more information before planning your trip."
-                ),
+                "content": question,
             }
         ],
     }

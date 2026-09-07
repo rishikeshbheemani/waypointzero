@@ -36,4 +36,9 @@ def run_supervisor(user_request: str) -> SupervisorDecision:
         ),
     ]
 
-    return supervisor.invoke(messages)
+    result = supervisor.invoke(messages)
+    if isinstance(result, SupervisorDecision):
+        return result
+    if isinstance(result, dict):
+        return SupervisorDecision.model_validate(result)
+    return SupervisorDecision()

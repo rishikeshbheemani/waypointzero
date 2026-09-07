@@ -15,7 +15,7 @@ def create_research_agent():
         model=settings.MODEL_NAME,
         api_key=settings.OPENROUTER_API_KEY,
         temperature=0,
-        max_tokens=3000,
+        max_tokens=1500,
     )
 
     return llm.with_structured_output(ResearchResult)
@@ -124,11 +124,16 @@ Do not invent information.
         ),
     ]
 
-    # LLM synthesis
-
-    result = research_agent.invoke(
+    raw_result = research_agent.invoke(
         messages
     )
+
+    if isinstance(raw_result, dict):
+        result = ResearchResult.model_validate(raw_result)
+    elif isinstance(raw_result, ResearchResult):
+        result = raw_result
+    else:
+        result = ResearchResult()
 
     # Attach actual sources
 

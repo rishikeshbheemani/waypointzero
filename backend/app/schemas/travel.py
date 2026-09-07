@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class TripRequest(BaseModel):
     destination: str
+    origin: str | None = None
     duration_days: int
     budget: Decimal | None = None
     start_date: date | None = None
@@ -125,10 +126,53 @@ class WeatherInfo(BaseModel):
         default_factory=list
     )
 
+class FlightOption(BaseModel):
+    airline: str
+    route: str
+    estimated_price_usd: Decimal | None = None
+    notes: str | None = None
+
+
+class TrainOption(BaseModel):
+    train_name_or_number: str
+    departure_station: str
+    arrival_station: str
+    duration: str
+    estimated_price_usd: Decimal | None = None
+    travel_class: str | None = None
+    trade_offs: str | None = None
+
+
+class TransitOption(BaseModel):
+    mode: str
+    route_or_system: str
+    estimated_cost: Decimal | None = None
+    description: str
+
+
+class TransportPass(BaseModel):
+    name: str
+    coverage: str
+    estimated_price: Decimal | None = None
+    is_recommended: bool = True
+    tips: str | None = None
+
+
 class TransportInfo(BaseModel):
     recommended_flights: list[str] = Field(default_factory=list)
+    flight_options: list[FlightOption] = Field(default_factory=list)
+
+    train_options: list[TrainOption] = Field(default_factory=list)
+
     local_transport: list[str] = Field(default_factory=list)
+    transit_options: list[TransitOption] = Field(default_factory=list)
+
     travel_passes: list[str] = Field(default_factory=list)
+    pass_options: list[TransportPass] = Field(default_factory=list)
+
+    airport_transfers: list[str] = Field(default_factory=list)
+    estimated_transport_cost: Decimal | None = None
+    tips: list[str] = Field(default_factory=list)
 
 class HotelRecommendation(BaseModel):
     name: str
