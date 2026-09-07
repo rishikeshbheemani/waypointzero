@@ -19,6 +19,10 @@ class TripRequest(BaseModel):
     interests: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
 
+    @property
+    def travelers(self) -> str:
+        return ", ".join(self.companions) if self.companions else "Solo"
+
 
 class UserProfile(BaseModel):
     travel_style: str | None = None
@@ -177,12 +181,20 @@ class TransportInfo(BaseModel):
 class HotelRecommendation(BaseModel):
     name: str
     city: str
-
     price_per_night: Decimal
-
     rating: float
-
     description: str
+
+    neighborhood: str | None = None
+    category: str | None = None
+    location_advantage: str | None = None
+    amenities: list[str] = Field(default_factory=list)
+    booking_url: str | None = None
+
+
+class AccommodationResult(BaseModel):
+    hotels: list[HotelRecommendation] = Field(default_factory=list)
+    neighborhood_insights: list[str] = Field(default_factory=list)
 
 class BudgetInfo(BaseModel):
     flights: Decimal = Decimal("0")

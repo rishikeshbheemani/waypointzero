@@ -8,9 +8,9 @@ from app.agents.clarification import clarification_node
 from app.agents.research import run_research_agent
 from app.agents.weather import run_weather_agent
 from app.agents.transport import run_transport_agent
+from app.agents.accommodation import run_accommodation_agent
 
 from app.agents.placeholders import (
-    accommodation_node,
     activities_node,
     budget_node,
 )
@@ -153,6 +153,27 @@ def transport_node(state: TravelState):
 
     return {
         "transport": transport_result,
+    }
+
+
+# Accommodation Node
+
+def accommodation_node(state: TravelState):
+    """
+    Execute the Accommodation Agent.
+
+    This node writes to the hotels field.
+    """
+
+    hotels = run_accommodation_agent(
+        trip_request=state.trip_request,
+        user_profile=state.user_profile,
+        research_result=state.research,
+        transport_info=state.transport,
+    )
+
+    return {
+        "hotels": hotels,
     }
 
 
