@@ -124,15 +124,20 @@ Do not invent information.
         ),
     ]
 
-    raw_result = research_agent.invoke(
-        messages
-    )
+    try:
+        raw_result = research_agent.invoke(
+            messages
+        )
 
-    if isinstance(raw_result, dict):
-        result = ResearchResult.model_validate(raw_result)
-    elif isinstance(raw_result, ResearchResult):
-        result = raw_result
-    else:
+        if isinstance(raw_result, dict):
+            result = ResearchResult.model_validate(raw_result)
+        elif isinstance(raw_result, ResearchResult):
+            result = raw_result
+        else:
+            result = ResearchResult()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error executing Research Agent: {e}")
         result = ResearchResult()
 
     # Attach actual sources

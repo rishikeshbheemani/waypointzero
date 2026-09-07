@@ -1,6 +1,8 @@
 from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
 
 from app.graph.state import TravelState
+from app.schemas.travel import Itinerary
 
 from app.agents.supervisor import run_supervisor
 from app.agents.preferences import preference_node
@@ -9,9 +11,9 @@ from app.agents.research import run_research_agent
 from app.agents.weather import run_weather_agent
 from app.agents.transport import run_transport_agent
 from app.agents.accommodation import run_accommodation_agent
+from app.agents.master_planner import run_master_planner
 
 from app.agents.placeholders import (
-    activities_node,
     budget_node,
 )
 
@@ -67,6 +69,11 @@ def route_after_preference(state: TravelState):
     Decide which specialized agents should run after
     the Preference Agent.
     """
+
+    # Multi-turn refinement: if itinerary already exists in memory and user provided feedback,
+    # route straight to master_planner for surgical update without re-running all search agents.
+    if state.itinerary and state.itinerary.days and state.messages:
+        return ["master_planner"]
 
     decision = state.supervisor_decision
     if not decision:
@@ -177,6 +184,65 @@ def accommodation_node(state: TravelState):
     }
 
 
+# Master Planner Node
+
+def master_planner_node(state: TravelState):
+    """
+    Execute the Master Planner Agent.
+
+    Synthesizes research, weather, transport, and hotels
+    into the day-by-day itinerary. Supports multi-turn refinement
+    if an itinerary already exists in session memory and user feedback is supplied.
+    """
+
+    user_feedback: str | None = None
+    if state.messages:
+        for msg in reversed(state.messages):
+            if isinstance(msg, dict):
+                content = msg.get("content")
+                role = msg.get("role") or msg.get("type")
+                if role in ("user", "human") and content:
+                    user_feedback = str(content)
+                    break
+            elif hasattr(msg, "content") and msg.content:
+                msg_type = getattr(msg, "type", None) or type(msg).__name__
+                if msg_type in ("human", "HumanMessage", "user"):
+                    if isinstance(msg.content, str):
+                        user_feedback = msg.content
+                    elif isinstance(msg.content, list):
+                        user_feedback = " ".join(
+                            str(item.get("text", item) if isinstance(item, dict) else item)
+                            for item in msg.content
+                        )
+                    else:
+                        user_feedback = str(msg.content)
+                    break
+
+    existing_itinerary: Itinerary | None = (
+        state.itinerary if (state.itinerary and state.itinerary.days) else None
+    )
+
+    itinerary = run_master_planner(
+        trip_request=state.trip_request,
+        user_profile=state.user_profile,
+        research_result=state.research,
+        weather_info=state.weather,
+        transport_info=state.transport,
+        hotels=state.hotels,
+        current_itinerary=existing_itinerary,
+        user_feedback=user_feedback if existing_itinerary is not None else None,
+    )
+
+    return {
+        "itinerary": itinerary,
+    }
+
+
+def activities_node(state: TravelState):
+    """Delegate to master_planner_node for backward compatibility."""
+    return master_planner_node(state)
+
+
 # Build Graph
 
 builder = StateGraph(TravelState)
@@ -225,6 +291,11 @@ builder.add_node(
 )
 
 builder.add_node(
+    "master_planner",
+    master_planner_node,
+)
+
+builder.add_node(
     "budget",
     budget_node,
 )
@@ -261,6 +332,7 @@ builder.add_conditional_edges(
         "transport": "transport",
         "accommodation": "accommodation",
         "activities": "activities",
+        "master_planner": "master_planner",
         "budget": "budget",
     },
 )
@@ -294,6 +366,11 @@ builder.add_edge(
 )
 
 builder.add_edge(
+    "master_planner",
+    END,
+)
+
+builder.add_edge(
     "budget",
     END,
 )
@@ -304,6 +381,7 @@ builder.add_edge(
 )
 
 
-# Compile
+# Compile with Session Memory Checkpointer
 
-graph = builder.compile()
+checkpointer = MemorySaver()
+graph = builder.compile(checkpointer=checkpointer)

@@ -212,12 +212,24 @@ class DailyActivity(BaseModel):
     location: str
     description: str
 
+    activity_type: str | None = None
+    cost_estimate: Decimal | None = None
+
+
 class DailyPlan(BaseModel):
     day: int
+    theme: str | None = None
+    day_summary: str | None = None
 
-    activities: list[DailyActivity] = Field(default_factory=list)
+    activities: list[DailyActivity] = Field(
+        default_factory=list,
+        description="Chronological list of 3 to 5 activities for this day (morning sightseeing, lunch, afternoon experience, dinner).",
+    )
+
 
 class Itinerary(BaseModel):
+    trip_title: str | None = None
+    summary: str | None = None
     days: list[DailyPlan] = Field(default_factory=list)
 
 class ExecutionState(BaseModel):
