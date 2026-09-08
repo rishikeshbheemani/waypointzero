@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from app.agents.master_planner import _fallback_itinerary, run_master_planner
-from app.graph.graph import activities_node, master_planner_node
+from app.graph.graph import master_planner_node
 from app.graph.state import TravelState
 from app.schemas.travel import (
     Attraction,
@@ -301,22 +301,3 @@ def test_master_planner_node_in_graph():
         assert "itinerary" in output
         assert len(output["itinerary"].days) == 2
         assert output["itinerary"].days[0].theme == "Eiffel Tower & Seine Cruise"
-
-
-def test_activities_node_delegates_to_master_planner():
-    trip = TripRequest(
-        destination="London",
-        duration_days=1,
-    )
-    initial_state = TravelState(trip_request=trip)
-
-    mock_itinerary = Itinerary(
-        trip_title="1-Day London Whirlwind",
-        days=[DailyPlan(day=1)],
-    )
-
-    with patch("app.graph.graph.run_master_planner", return_value=mock_itinerary):
-        output = activities_node(initial_state)
-
-        assert "itinerary" in output
-        assert len(output["itinerary"].days) == 1

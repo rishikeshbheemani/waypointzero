@@ -205,6 +205,9 @@ class BudgetInfo(BaseModel):
 
     total: Decimal = Decimal("0")
     remaining: Decimal | None = None
+    status: str = "within_budget"
+    currency: str = "USD"
+    cost_saving_tips: list[str] = Field(default_factory=list)
 
 class DailyActivity(BaseModel):
     time: str

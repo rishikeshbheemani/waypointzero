@@ -1,3 +1,5 @@
+from typing import Any, cast
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -13,9 +15,7 @@ from app.agents.transport import run_transport_agent
 from app.agents.accommodation import run_accommodation_agent
 from app.agents.master_planner import run_master_planner
 
-from app.agents.placeholders import (
-    budget_node,
-)
+from app.agents.budget import run_budget_agent
 
 
 # Supervisor Node
@@ -76,28 +76,19 @@ def route_after_preference(state: TravelState):
         return ["master_planner"]
 
     decision = state.supervisor_decision
-    if not decision:
-        return ["research", "weather", "transport"]
-
     routes = []
+    if decision:
+        if decision.invoke_research:
+            routes.append("research")
+        if decision.invoke_weather:
+            routes.append("weather")
+        if decision.invoke_transport:
+            routes.append("transport")
+        if decision.invoke_accommodation:
+            routes.append("accommodation")
 
-    if decision.invoke_research:
-        routes.append("research")
-
-    if decision.invoke_weather:
-        routes.append("weather")
-
-    if decision.invoke_transport:
-        routes.append("transport")
-
-    if decision.invoke_accommodation:
-        routes.append("accommodation")
-
-    if decision.invoke_activities:
-        routes.append("activities")
-
-    if decision.invoke_budget:
-        routes.append("budget")
+    if not routes:
+        routes = ["research", "weather", "transport", "accommodation"]
 
     return routes
 
@@ -238,9 +229,24 @@ def master_planner_node(state: TravelState):
     }
 
 
-def activities_node(state: TravelState):
-    """Delegate to master_planner_node for backward compatibility."""
-    return master_planner_node(state)
+def budget_node(state: TravelState):
+    """
+    Execute the Budget Agent.
+
+    Computes itemized expenses (flights, lodging, food, local transit, activities)
+    and evaluates against the trip budget with cost-saving recommendations.
+    """
+    budget_info = run_budget_agent(
+        trip_request=state.trip_request,
+        transport_info=state.transport,
+        hotels=state.hotels,
+        itinerary=state.itinerary,
+        user_profile=state.user_profile,
+    )
+
+    return {
+        "budget": budget_info,
+    }
 
 
 # Build Graph
@@ -286,11 +292,6 @@ builder.add_node(
 )
 
 builder.add_node(
-    "activities",
-    activities_node,
-)
-
-builder.add_node(
     "master_planner",
     master_planner_node,
 )
@@ -331,49 +332,48 @@ builder.add_conditional_edges(
         "weather": "weather",
         "transport": "transport",
         "accommodation": "accommodation",
-        "activities": "activities",
         "master_planner": "master_planner",
-        "budget": "budget",
     },
 )
 
 
-# Specialized Agents → END
+# Parallel Specialized Agents → Master Planner (Barrier Fan-In)
 
 builder.add_edge(
     "research",
-    END,
+    "master_planner",
 )
 
 builder.add_edge(
     "weather",
-    END,
+    "master_planner",
 )
 
 builder.add_edge(
     "transport",
-    END,
+    "master_planner",
 )
 
 builder.add_edge(
     "accommodation",
-    END,
+    "master_planner",
 )
 
-builder.add_edge(
-    "activities",
-    END,
-)
+# Master Planner → Budget
 
 builder.add_edge(
     "master_planner",
-    END,
+    "budget",
 )
+
+# Budget → END
 
 builder.add_edge(
     "budget",
     END,
 )
+
+# Clarification → END
 
 builder.add_edge(
     "clarification",
@@ -385,3 +385,32 @@ builder.add_edge(
 
 checkpointer = MemorySaver()
 graph = builder.compile(checkpointer=checkpointer)
+
+_original_invoke = graph.invoke
+
+
+def _safe_invoke(
+    input: Any,
+    config: RunnableConfig | None = None,
+    **kwargs: Any,
+) -> Any:
+    """
+    Ensure a default thread_id is supplied when none is provided
+    so the checkpointer can store state without raising a ValueError.
+    """
+    if config is None:
+        effective_config: dict[str, Any] = {"configurable": {"thread_id": "default-session"}}
+    else:
+        effective_config = dict(config)
+        configurable = effective_config.get("configurable")
+        if not isinstance(configurable, dict):
+            effective_config["configurable"] = {"thread_id": "default-session"}
+        elif "thread_id" not in configurable:
+            configurable_copy = dict(configurable)
+            configurable_copy["thread_id"] = "default-session"
+            effective_config["configurable"] = configurable_copy
+
+    return _original_invoke(input, config=cast(RunnableConfig, effective_config), **kwargs)
+
+
+graph.invoke = _safe_invoke
