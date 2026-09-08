@@ -15,7 +15,33 @@ from app.schemas.travel import (
     TripRequest,
 )
 
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import sessionmaker
+from app.database.session import get_db
+from app.models.trip import Base
+
+test_engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+Base.metadata.create_all(bind=test_engine)
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+def override_get_db():
+    db = TestSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
+
 client = TestClient(app)
+
 
 
 @pytest.fixture
@@ -229,3 +255,34 @@ def test_plan_trip_stream_endpoint():
         assert "pipeline_complete" in content
         assert "supervisor" in content
         assert "master_planner" in content
+
+
+def test_list_trips_endpoint(sample_itinerary, sample_budget):
+    payload = {
+        "trip_request": {
+            "destination": "Osaka",
+            "duration_days": 3,
+            "budget": 1500.0,
+        },
+        "session_id": "session-osaka-list-test",
+    }
+    mock_graph_result = {
+        "supervisor_decision": SupervisorDecision(needs_clarification=False),
+        "itinerary": sample_itinerary,
+        "budget": sample_budget,
+        "hotels": [],
+        "transport": None,
+        "weather": None,
+        "research": None,
+    }
+    with patch("app.api.trips.graph.invoke", return_value=mock_graph_result):
+        # Create a trip
+        client.post("/api/trips/plan", json=payload)
+
+    # Fetch list
+    response = client.get("/api/trips?limit=10")
+    assert response.status_code == 200
+    trips = response.json()
+    assert isinstance(trips, list)
+    assert any(t["session_id"] == "session-osaka-list-test" for t in trips)
+
