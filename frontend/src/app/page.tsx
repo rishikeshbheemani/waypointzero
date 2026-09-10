@@ -32,7 +32,8 @@ export default function Home() {
   const [lastRequest, setLastRequest] = useState<TripRequest | null>(null);
   const [lastProfile, setLastProfile] = useState<UserProfile | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_URL = rawApiUrl.replace(/\/+$/, "");
 
   // Reset to create a new trip
   const handleNewTrip = () => {
